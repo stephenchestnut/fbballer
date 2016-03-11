@@ -1,0 +1,3 @@
+Install mariadb
+Install mysql-python
+Import stats.sql into SQL
