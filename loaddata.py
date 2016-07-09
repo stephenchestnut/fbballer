@@ -2,6 +2,7 @@ import mysql.connector as mariadb
 
 import params as p
 import numpy as np
+import value
 
 ###################
 # Batters data in the form:
@@ -95,28 +96,28 @@ def loaddata___players():
 def loaddata___datasetup(load_year,styear=p.minYear,enyear=p.maxYear):
     # load and normalize data for all of the years, add player data
 
-    dat=[]
+    dat=[] #list for cumulative data of all years
     pl = loaddata___players()
     
     #Get last year data and compute scores
     datyear = load_year(enyear+1)
 
     #normalize the six scoring categories, compute scores and store them
-    scorecats = [x[1][0:6] for x in datyear] 
-    norm = np.percentile(scorecats,p.normPct,axis=0)
-
+    scorecats = [x[1][0:6] for x in datyear]
+    vals = value.stats_to_vals(scorecats)
+    
     #score is sum of normalized categories
     scores = dict([ #{(playerID,year):float score}
-        ( (x[0],enyear+1), sum([1.0*x[1][i] / norm[i] for i in range(0,6)]) )
-        for x in datyear]) 
+        ( (datyear[ii][0],enyear+1), vals[ii] )
+        for ii in range(len(datyear))]) 
     
     for year in range(enyear,styear-1,-1):
         datyear = load_year(year)
         scorecats = [x[1][0:6] for x in datyear] 
-        norm = np.percentile(scorecats,p.normPct,axis=0)
+        vals = value.stats_to_vals(scorecats)
         scores.update([
-            ( (x[0],year), sum([1.0*x[1][i] / norm[i] for i in range(0,6)]) )
-            for x in datyear])
+            ( (datyear[ii][0],year), vals[ii] )
+            for ii in range(len(datyear))])
         dat = dat + [((x[0],year),
                   (scores[(x[0],year+1)],) + #next year's score
                   x[1] +
