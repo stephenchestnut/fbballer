@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-import draftvalues as dv
+import draft
 import csv
 
-(B,P)=dv.NL2016Draft()
+(B,P)=draft.NL2016Draft()
 
 with open('batter_values.csv', 'w') as csvfile:
     writer = csv.writer(csvfile)
