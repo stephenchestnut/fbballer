@@ -8,35 +8,8 @@ import params as p
 #
 def NL2016Draft():
 
-    ##Load player performance data and compute values
-    batval = batter_value_fun()
-    pitval = pitcher_value_fun()
-
-    B = loaddata.NLBatters2015()
-    P = loaddata.NLPitchers2015()
-    names = loaddata.NLNames2015()
-
-    Bval = [batval(x) for x in B]
-    Pval = [pitval(x) for x in P]
-
-    ##Convert value to samolians by assuming top 11*9 batters and top 10*9 pitchers are drafted
-    nBatters=int(np.ceil(p.teamSize/2.0))
-    nPitchers=int(np.floor(p.teamSize/2.0))
-    #batter and pitcher conversion factors (assuming equal spending on both)
-    bcf = 1.0 * p.teamBudget * p.numTeams *nBatters / (p.teamSize * sum(np.sort(Bval)[-(nBatters*p.numTeams):]))
-    pcf = 1.0 * p.teamBudget * p.numTeams *nPitchers / (p.teamSize * sum(np.sort(Pval)[-(nPitchers*p.numTeams):]))
-    #convert to samolians
-    Bval = [x*bcf for x in Bval]
-    Pval = [x*pcf for x in Pval]
-
-    B = list(zip(Bval,B))
-    P = list(zip(Pval,P))
-
-    B = [names[x[1][0][0]] + (x[0], x[1][0][0]) + x[1][1][1:] for x in B]
-    #first,last,pos,price,id,s,t,a,t,s
-    P = [names[x[1][0][0]] + (x[0], x[1][0][0]) + x[1][1][1:] for x in P]
-    #first,last,pos,price,id,s,t,a,t,s
-
+    B = nl_batter_vorp()
+    P = nl_pitcher_vorp()
     return (B,P)
     
 def batter_value_fun():
@@ -52,6 +25,74 @@ def pitcher_value_fun():
     #f:(pitching s,t,a,t,s)->values
     
     return draftvalues___linreg(loaddata.pitchers(),rcond=0.05)
+
+def abs_to_vorp(absval, k):
+    #convert "absolute" player values to "value over replacement player"
+    #vorp = abs_to_vorp(absval,k)
+    #replacement player is taken to be the (k+1)th by value
+
+    abscopy = list(absval)
+    abscopy.sort() #sorted least to highest valuable
+    if (k+1) > len(absval):
+        rpval = 0
+    else:
+        rpval = abscopy[-(k+1)]
+
+    vorp = [x-rpval for x in absval]
+    return vorp
+
+def nl_batter_vorp():
+    #Compute NL 2015 batter vorp in samolians
+    # B = nl_batter_vorp():
+    # where rows of B are first name,last name,pos,vorp,id,s,t,a,t,s
+
+    ##Load player performance data and compute values
+    batval = batter_value_fun()
+    B = loaddata.NLBatters2015()
+    names = loaddata.NLNames2015()
+
+    Bval = [batval(x) for x in B]
+    nBatters=int(np.ceil(p.teamSize/2.0))
+    Bvorp = abs_to_vorp(Bval, p.numTeams * nBatters)
+    bcf = 1.0 * p.teamBudget * p.numTeams *nBatters / (p.teamSize * sum(np.sort(Bvorp)[-(nBatters*p.numTeams):]))
+
+    #convert to samolians
+    Bvorp = [x*bcf for x in Bvorp]
+
+    B = list(zip(Bvorp,B))
+
+    B = [names[x[1][0][0]] + (x[0], x[1][0][0]) + x[1][1][1:] for x in B]
+    #first,last,pos,price,id,s,t,a,t,s
+
+    return B
+
+def nl_pitcher_vorp():
+    #Compute NL 2015 pitcher vorp in samolians
+    # P = nl_pitcher_vorp():
+    # where rows of P are first name,last name,pos,vorp,id,s,t,a,t,s
+
+    ##Load player performance data and compute values
+    pitval = pitcher_value_fun()
+    P = loaddata.NLPitchers2015()
+    names = loaddata.NLNames2015()
+
+    Pval = [pitval(x) for x in P]
+    nPitchers=int(np.floor(p.teamSize/2.0))
+    Pvorp = abs_to_vorp(Pval, p.numTeams * nPitchers)
+
+    #batter and pitcher conversion factors (assuming equal spending on both)
+    pcf = 1.0 * p.teamBudget * p.numTeams *nPitchers / (p.teamSize * sum(np.sort(Pvorp)[-(nPitchers*p.numTeams):]))
+    #convert to samolians
+    Pvorp = [x*pcf for x in Pvorp]
+
+    P = list(zip(Pvorp,P))
+
+    P = [names[x[1][0][0]] + (x[0], x[1][0][0]) + x[1][1][1:] for x in P]
+    #first,last,pos,price,id,s,t,a,t,s
+
+    return P
+    
+
 
 ########################
 ### Helper functions ###
