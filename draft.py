@@ -3,6 +3,9 @@ import loaddata
 import params as p
 import value
 
+#Load data and compute the valuation function
+lrv = value.LinRegValuation()
+
 #####################
 # Price 2015 players for 2016 draft
 # (B, P) = NL2016Draft()
@@ -19,13 +22,15 @@ def nl_batter_vorp2016():
     # where rows of B are first name,last name,pos,vorp,id,s,t,a,t,s
 
     ##Load player performance data and compute values
-    batval = value.batter_value_fun()
-    B = loaddata.NLBatters2015()
-    names = loaddata.NLNames2015()
+    db2015 = loaddata.LahmanNL2015()
+    db2015.connect()
+    B = db2015.NLBatters2015()
+    names = db2015.NLNames2015()
+    db2015.disconnect()
 
     nBatters=int(np.ceil(p.teamSize/2.0)) #expected number of batters on a team
 
-    Bval = [batval(x) for x in B]
+    Bval = [lrv.bvalfcn(x) for x in B]
     Bval = value.abs_to_vorp(Bval, p.numTeams * nBatters)
     Bval = value.to_samolians(Bval, nBatters)
 
@@ -42,13 +47,15 @@ def nl_pitcher_vorp2016():
     # where rows of P are first name,last name,pos,vorp,id,s,t,a,t,s
 
     ##Load player performance data and compute values
-    pitval = value.pitcher_value_fun()
-    P = loaddata.NLPitchers2015()
-    names = loaddata.NLNames2015()
-
+    db2015=loaddata.LahmanNL2015()
+    db2015.connect()
+    P = db2015.NLPitchers2015()
+    names = db2015.NLNames2015()
+    db2015.disconnect()
+    
     nPitchers=int(np.floor(p.teamSize/2.0)) # expected number of pitcher on a team
 
-    Pval = [pitval(x) for x in P]
+    Pval = [lrv.pvalfcn(x) for x in P]
     Pval = value.abs_to_vorp(Pval, p.numTeams * nPitchers)
     Pval = value.to_samolians(Pval, nPitchers) 
 
