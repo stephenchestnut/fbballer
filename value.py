@@ -60,11 +60,21 @@ def normalize_stats(stats):
     vals = [sum([1.0*x[i] / norm[i] for i in range(0,6)]) for x in stats]
     return vals
 
-def abs_to_vorp(absval, repval):
+def abs_to_vorp(absval, k, direct=False):
     #convert "absolute" player values to "value over replacement player"
     #vorp = abs_to_vorp(absval,k)
-    #repval - value of hypothetical replacement player
+    # - (k+1)st best player is replacement player
+    #vorp = abs_to_vorp(absval,k,direct=True)
+    # - k is the absval score of the replacement player
 
+    if direct:
+        repval=k
+    else:
+        k = min(k,len(absval))
+        srt = list(absval)
+        srt.sort()
+        repval = srt[-k]
+        
     vorp = [x-repval for x in absval]
     return vorp
 
