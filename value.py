@@ -8,57 +8,65 @@ import loaddata
 
 class Valuation(object):
     
-    def __init__(self):
+    def __init__(self,db,year):
         return
     
-    def value_batters(self, batters):
-        # Compute the value of a list of batters
-        return [0.0]*len(players)
+    def batter_values(self):
+        # Return a list of tuples (dbid, value) for all batters in year
+        return []
 
-    def value_pitchers(self, pitchers):
-        # Compute the value of a list of batters
-        return [0.0]*len(players)
-
-#####################################
-## Valuations by linear regression ##
-#####################################
+    def pitcher_values(self):
+        # Return a list of tuples (dbid, value) for all batters in year
+        return []
     
-class LinRegValuation(Valuation):
-    # Value players by linear regression
-    def __init__(self):
-        db = loaddata.LahmanDB()
-        db.connect()
+##################################
+## Linear valuation of players  ##
+##################################    
         
-        self.bvalfcn = self._linreg(db.batters(),rcond=0.05) #f:(batter s,t,a,t,s)->values
-        self.pvalfcn = self._linreg(db.pitchers(),rcond=0.05) #f:(pitching s,t,a,t,s)->values
+class LinearValues(Valuation):
+    # Player value is the normalized (within year) sum of his stats, adjusted to vorp
+    # LinearValues(DB,year)
+    #   - db: connected lahman db instance
+    #   - year: year to compute values for
+    def __init__(self,db,year):
 
-        db.disconnect
+        #need better normalization here!
         
-        return
+        dat = db.batters(year,year)
+        scorecats = [x[1][0:6] for x in dat]
+        #scorecats = OBP, SLG, R, HR, RBI, SB
+        normed,junk = normalize_stats(scorecats)
+        scores = [ sum(x) for x in normed]
+        self._bvals = [ (dat[ii][0][0], scores[ii]) for ii in range(len(dat))]
+
+        dat = db.pitchers(year,year) #CHANGE NORMALIZATION FOR ERA AND WHIP
+        scorecats = [list(x[1][0:3]) + [-1.0*x[1][3],-1.0*x[1][4], x[1][5]] for x in dat]
+        #scorecats = W, SV, SO, -ERA, -WHIP, QS
+        normed,junk = normalize_stats(scorecats)
+        scores = [ sum(x) for x in normed]
+        self._pvals = [ (dat[ii][0][0], scores[ii]) for ii in range(len(dat))]
+
+    def batter_values(self):
+        return self._bvals
+
+    def pitcher_values(self):
+        return self._pvals
         
-    def _linreg(self,data,rcond=-1):
-        # Fit a linear function to the batters or pitchers data,
-        # drop singular values smaller than rcond*(spectral norm)
-        #    f = linreg(data)
-        #    f = linreg(data,rcond=0.01)
-        
-        xy = list(zip(*[(x[1][1:], x[1][0]) for x in data]))
-        coeff = numpy.linalg.lstsq(xy[0], xy[1],rcond)
-        def pricehim(x):
-            return sum([coeff[0][i] * x[1][i+1] for i in range(0,len(coeff))])
-        return pricehim
         
 #####################
 ## Tools for valuing players
 
 def normalize_stats(stats):
     #determine a single value from a list of stats for all players
-    # vals = stats_to_vals(stats)
+    # vals = normalize_stats(stats)
+    # vals,norm = normalize_stats(stats)
     # each row of stats is the collection of statistics (larger better) for the players
     # the stats are normalized to the params.normPct percentile and summed for each player to get value
+    # second return is normalizing values
+    ncol = len(stats[0])
     norm = numpy.percentile(stats,params.normPct,axis=0)
-    vals = [sum([1.0*x[i] / norm[i] for i in range(0,6)]) for x in stats]
-    return vals
+    vals = [ [1.0*x[i] / abs(norm[i]) for i in range(0,ncol)] for x in stats]
+    return vals,norm
 
 def abs_to_vorp(absval, k, direct=False):
     #convert "absolute" player values to "value over replacement player"

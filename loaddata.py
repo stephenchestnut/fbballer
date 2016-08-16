@@ -31,31 +31,31 @@ class LahmanDB(object):
     
     ###################
     # Batters data in the form:
-    # [((playerID,year), (score, OBP, SLG, R, HR, RBI, SB, G, AB, H, 2B, 3B, CS, BB, SO, IBB, HBP, SH, SF, GIDP, age, years played, weight, height))]
-    # Score of a player in year is sum of his normalized OBP,SLG,R,HR,RBI,SB
+    # [((playerID,year), (OBP, SLG, R, HR, RBI, SB, G, AB, H, 2B, 3B, CS, BB, SO, IBB, HBP, SH, SF, GIDP, age, years played, weight, height))]
+    # data is sorted first by year, then alphabetically by playerID
     ###################
     def batters(self,styear=p.minYear, enyear=p.maxYear):
         #Load and standardize data for all batters
         #[ ((playerID,year),(score,s,t,a,t,s))] = batters()
     
-        def blfun(year,WHERE=""):
+        def bqfun(year,WHERE=""):
             return self._batter_query(year,WHERE+" AND G> " + str(p.minGames) + " ")
 
-        return self._datasetup(blfun, styear, enyear)
+        return self._datasetup(bqfun, styear, enyear)
 
     ###################
     # Pitchers data in the form:
-    # [((playerID,year), (score, W, SV, SO, -ERA, -WHIP, QS(=1), H, BB, IPOuts, HBP, IBB, L, G, GS, CG, SHO, ER, HR, BAOpp, WP, BK, BFP, GF, age, years played, weight, height))]
-    # Score of a player in year is sum of his normalized OBP,SLG,R,HR,RBI,SB
+    # [((playerID,year), (W, SV, SO, ERA, WHIP, QS(=1), H, BB, IPOuts, HBP, IBB, L, G, GS, CG, SHO, ER, HR, BAOpp, WP, BK, BFP, GF, age, years played, weight, height))]
+    # data is sorted first by year, then alphabetically by playerID
     ###################
     def pitchers(self,styear=p.minYear,enyear=p.maxYear):
         #Load and standardize data for all pitchers
         #[ ((playerID,year),(score,s,t,a,t,s))] = pitchers()
         
-        def pifun(year,WHERE=""):
+        def pqfun(year,WHERE=""):
             return self._pitcher_query(year,WHERE+" AND BFP>" + str(p.minBatters) + " ")
 
-        return self._datasetup(pifun, styear, enyear)
+        return self._datasetup(pqfun, styear, enyear)
         
     def _battersWHERE(self):
         #Restriction on batter selection from database
@@ -66,37 +66,21 @@ class LahmanDB(object):
         return  " IPOuts>0 "
 
     def _datasetup(self,load_year,styear=p.minYear,enyear=p.maxYear):
-        # load and normalize data for all of the years, add player data
+        # [((playerid,year),(stats))] = _datasetup(load_year,styear,enyear)
+        # load data for each year styear,styear+1,..,enyear and add some player bio data
+        # function load_year is used to get the data from the database
         
         dat=[] #list for cumulative data of all years
         pl = self.players()
         
-        #Get last year data and compute scores
-        datyear = load_year(enyear+1)
-        
-        #normalize the six scoring categories, compute scores and store them
-        scorecats = [x[1][0:6] for x in datyear]
-        vals = value.normalize_stats(scorecats)
-        
-        #score is sum of normalized categories
-        scores = dict([ #{(playerID,year):float score}
-            ( (datyear[ii][0],enyear+1), vals[ii] )
-            for ii in range(len(datyear))]) 
-        
-        for year in range(enyear,styear-1,-1):
+        for year in range(styear,enyear+1):
             datyear = load_year(year)
-            scorecats = [x[1][0:6] for x in datyear] 
-            vals = value.normalize_stats(scorecats)
-            scores.update([
-                ( (datyear[ii][0],year), vals[ii] )
-                for ii in range(len(datyear))])
             dat = dat + [((x[0],year),
-                          (scores[(x[0],year+1)],) + #next year's score
                           x[1] +
                           (year-pl[x[0]][0],   #age
                            year-pl[x[0]][1]) + #years in league
                           pl[x[0]][2:])
-                         for x in datyear if ( (x[0] in pl) and ((x[0],year+1) in scores) )]
+                         for x in datyear if ( x[0] in pl )]
         return dat
 
     def _batter_query(self,year,WHERE=""):
@@ -136,8 +120,8 @@ class LahmanDB(object):
         P = [(
             x[0],
             x[1:4] + 
-            (-1.0*x[4], #-ERA
-             -1.0*(x[6]+x[5])/x[7], #-WHIP
+            (x[4], #-ERA
+             1.0*(x[6]+x[5])/x[7], #-WHIP
              1) +  #Quality starts (don't have data currently)
             tuple([float(i) for i in x[5:]]))
              for x in entries]

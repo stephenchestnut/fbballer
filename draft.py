@@ -2,9 +2,10 @@ import numpy as np
 import loaddata
 import params as p
 import value
+import forecast
 
 #Load data and compute the valuation function
-lrv = value.LinRegValuation()
+#lrv = forcast.LinRegValuation()
 
 #####################
 # Price 2015 players for 2016 draft
@@ -12,8 +13,37 @@ lrv = value.LinRegValuation()
 #
 def NL2016Draft():
 
-    B = nl_batter_vorp2016()
-    P = nl_pitcher_vorp2016()
+    db = loaddata.LahmanDB()
+    nl2015db = loaddata.LahmanNL2015()
+    db.connect()
+    nl2015db.connect()
+
+    lr = forecast.LinRegForecaster(db, p.minYear, p.maxYear, value.LinearValues)
+    #B = nl_batter_vorp2016()
+    #P = nl_pitcher_vorp2016()
+
+    batstats = nl2015db.NLBatters2015()
+    pitstats = nl2015db.NLPitchers2015()
+    names = nl2015db.NLNames2015()
+    #Compute values
+    batval,pitval = lr.predict( batstats, pitstats )
+
+    #Vorp the values and convert to samolians
+    batval = value.abs_to_vorp(batval,p.numTeams * int(np.ceil(p.teamSize / 2)))
+    batval = value.to_samolians(batval, int(np.ceil(p.teamSize / 2)))
+    pitval = value.abs_to_vorp(pitval,p.numTeams * int(np.floor(p.teamSize / 2)))
+    pitval = value.to_samolians(pitval, int(np.floor(p.teamSize / 2)))
+    
+    B=[]
+    for ii in range(len(batstats)):
+        B+=[ list(names[batstats[ii][0][0]]) + [batstats[ii][0][1]] + [batval[ii]] + list(batstats[ii][1]) ]
+    P=[]
+    for ii in range(len(pitstats)):
+        P+=[ list(names[pitstats[ii][0][0]]) + [pitstats[ii][0][1]] + [pitval[ii]] + list(pitstats[ii][1]) ]
+
+    db.disconnect()
+    nl2015db.disconnect()
+    
     return (B,P)
     
 def nl_batter_vorp2016():
